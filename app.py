@@ -1,3 +1,4 @@
+from flask_cors import CORS
 import json
 import os
 import re
@@ -10,6 +11,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 import db
 
 app = Flask(__name__, static_folder="static")
+CORS(app)
 db.init_db()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -122,7 +124,11 @@ def chat():
         try:
             with requests.post(GROQ_URL, headers=headers, json=payload, stream=True, timeout=60) as r:
                 if r.status_code != 200:
-                    yield f"The AI service returned an error ({r.status_code}). Please try again shortly."
+                    try:
+                        detail = r.json().get("error", {}).get("message", "")
+                    except ValueError:
+                        detail = ""
+                    yield f"The AI service returned an error ({r.status_code}). {detail}"
                     return
                 for line in r.iter_lines():
                     if not line or not line.startswith(b"data: "):
